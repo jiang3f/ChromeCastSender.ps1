@@ -1,18 +1,24 @@
-﻿###############################################
+﻿<#
+
+    Copyright (C) Patrick Jiang (jiang3f@gmail.com)
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+#>
+
+###############################################
 # Send control message to ChromeCast
 ###############################################
 
-
-#
-# Set Variables
-#
-
- param (
-    [Parameter(Mandatory=$false)][hashtable]$soa_hash = @{"soa_time_numerator" = 1; "soa_time_denominator" = 1; "soa_duration_denominator" = 1; "soa_duration_numerator" = 1; "outMedia" = "d:\vantage_store\9f6a097b-a131-4a87-8cb7-42c71f0d30ee\";},
-    [URI]$DASH ='file:///d:\vantage_store\6b9e6fb4-9129-4597-b798-7563edeb1ce4\sourcempeg2_422_pro_ntsc\sourcempeg2_422_pro_ntsc.mpd'
-#    [URI]$DASH
-
- )
 
 $DebugPreference = 'continue'
 
@@ -185,20 +191,8 @@ Function ReadMessage( [byte[]] $buffer, [int] $bytes, [ref] $response)
 
 $Certificate = $null
 
-# home 
-#$ComputerName = "192.168.1.7"
-
-# office
+# chromecast's IP address
 $ComputerName = "10.0.19.118"
-
-# chromecast ultra
-#$ComputerName = "10.0.19.76"
-
-# my test server in the office
-#$ComputerName = "10.0.19.219"
-
-# my test server at home
-#$ComputerName = "192.168.1.4"
 
 $TcpClient = New-Object Net.Sockets.TcpClient
 $TcpClient.Connect($ComputerName, 8009)
@@ -211,6 +205,7 @@ $SslStream = New-Object -TypeName System.Net.Security.SslStream -ArgumentList @(
 
 $SslStream.ReadTimeout = 15000
 $SslStream.WriteTimeout = 15000
+
 $SslStream.AuthenticateAsClient($ComputerName, $null, [System.Security.Authentication.SslProtocols]::Tls11 -bor [System.Security.Authentication.SslProtocols]::Tls12 -bor [System.Security.Authentication.SslProtocols]::Default, $false)
 $Certificate = $SslStream.RemoteCertificate
 
@@ -274,10 +269,10 @@ Write-Debug "len = $len"
 $SslStream.Write($msg, 0, $len)
 $SslStream.Flush()
 
-# launch
-$data = '{"type":"LAUNCH","requestId":46479001,"appId":"CC1AD845"}'
+# launch default player
+#$data = '{"type":"LAUNCH","requestId":46479001,"appId":"CC1AD845"}'
 
-# CACD78FE is my receiver
+# CACD78FE is my customer receiver
 $data = '{"type":"LAUNCH","requestId":46479001,"appId":"CACD78FE"}'
 $chrome_namespace = "urn:x-cast:com.google.cast.receiver"
 $msg = CreateRequest $data $chrome_namespace ([ref]$len) ''
@@ -335,12 +330,8 @@ $SslStream.Write($msg, 0, $len)
 $SslStream.Flush()
 
 
-# load google media source
-#$data = '{"type":"LOAD","requestId":46479002,"sessionId":" + $sessionId + ","media":{"contentId":"http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4","streamType":"buffered","contentType":"video/mp4"},"autoplay":true,"currentTime":0,"customData":{"payload":{"title:":"Big Buck Bunny","thumb":"images/BigBuckBunny.jpg"}}}'
-# home
-#$data = '{"type":"LOAD","requestId":46479002,"sessionId":" + $sessionId + ","media":{"contentId":"http://192.168.1.4/sourcempeg2_422_pro_ntsc.mp4","streamType":"buffered","contentType":"video/mp4"},"autoplay":true,"currentTime":0,"customData":{"payload":{"title:":"Big Buck Bunny","thumb":"images/BigBuckBunny.jpg"}}}'
-# office
-$data = '{"type":"LOAD","requestId":46479002,"sessionId":" + $sessionId + ","media":{"contentId":"http://10.0.19.112/sourcempeg2_422_pro_ntsc.mp4","streamType":"buffered","contentType":"video/mp4"},"autoplay":true,"currentTime":0,"customData":{"payload":{"title:":"Big Buck Bunny","thumb":"images/BigBuckBunny.jpg"}}}'
+# Play the mp4 file located on the local HTTP server
+$data = '{"type":"LOAD","requestId":46479002,"sessionId":" + $sessionId + ","media":{"contentId":"http://10.0.19.112/sourcempeg2_422_pro_ntsc.mp4","streamType":"buffered","contentType":"video/mp4"},"autoplay":true,"currentTime":0,"customData":{"payload":{"title:":"sourcempeg2_422_pro_ntsc","thumb":"images/BigBuckBunny.jpg"}}}'
 $chrome_namespace = "urn:x-cast:com.google.cast.media"
 $msg = CreateRequest $data $chrome_namespace ([ref]$len) $transportId
 
