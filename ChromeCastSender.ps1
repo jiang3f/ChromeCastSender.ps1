@@ -1,6 +1,6 @@
 ﻿<#
 
-    Copyright (C) Patrick Jiang (jiang3f@gmail.com)
+    Copyright (C) 2017 Patrick Jiang (jiang3f@gmail.com)
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -19,6 +19,17 @@
 # Send control message to ChromeCast
 ###############################################
 
+
+#
+# Set Variables
+#
+
+param (
+    [URI]$content ='file:///d:\examples\sourcempeg2_422_pro_ntsc.mp4',
+    [URI]$wwwRoot ='file:///c:\test',
+    [string]$httpServerAddr = '192.168.1.10',
+    [string]$httpServerPort = '8787'
+)
 
 $DebugPreference = 'continue'
 
@@ -191,8 +202,30 @@ Function ReadMessage( [byte[]] $buffer, [int] $bytes, [ref] $response)
 
 $Certificate = $null
 
+# copy media files
+#
+$outputLocalPath = $wwwRoot.LocalPath
+$extName = [System.IO.Path]::GetExtension($content.LocalPath)
+$shortName = [System.IO.Path]::GetFileName($content.LocalPath)
+if((($extName -eq '.mpd') -or ($extName -eq '.ismc') -or ($extName -eq 'm3u8')) -eq $true)
+{
+    $sourcePath = Split-Path -Path $($content.LocalPath) 
+    $sourcePath += '\*'
+    Copy-Item $sourcePath $outputLocalPath -recurse
+}
+elseif (($extName -eq '.mp4') -eq $true)
+{
+    Copy-Item $content.LocalPath $outputLocalPath 
+}
+else
+{
+    Write-Debug "Unsupported format"
+    return
+}
+
 # chromecast's IP address
-$ComputerName = "10.0.19.118"
+#$ComputerName = "10.0.19.118"
+$ComputerName = "192.168.1.12"
 
 $TcpClient = New-Object Net.Sockets.TcpClient
 $TcpClient.Connect($ComputerName, 8009)
@@ -330,8 +363,54 @@ $SslStream.Write($msg, 0, $len)
 $SslStream.Flush()
 
 
-# Play the mp4 file located on the local HTTP server
-$data = '{"type":"LOAD","requestId":46479002,"sessionId":" + $sessionId + ","media":{"contentId":"http://10.0.19.112/sourcempeg2_422_pro_ntsc.mp4","streamType":"buffered","contentType":"video/mp4"},"autoplay":true,"currentTime":0,"customData":{"payload":{"title:":"sourcempeg2_422_pro_ntsc","thumb":"images/BigBuckBunny.jpg"}}}'
+$codec = ''
+if($extName -eq '.mp4')
+{
+    $codec = "video/mp4"
+}
+elseif($exName -eq '.mpd')
+{
+    $codec = "application/dash+xml"
+}
+elseif($exName -eq '.m3u8')
+{
+    $codec = "application/x-mpegurl"
+}
+elseif($extName -eq '.ismc')
+{
+    $codec = "application/vnd.ms-sstr+xml"
+}
+
+
+<# Play the mp4 file located on the local HTTP server
+#$data = '{"type":"LOAD","requestId":46479002,"sessionId":" + $sessionId + ","media":{"contentId":"http://10.0.19.112/sourcempeg2_422_pro_ntsc.mp4","streamType":"buffered","contentType":$codec},"autoplay":true,"currentTime":0,"customData":{"payload":{"title:":"sourcempeg2_422_pro_ntsc","thumb":"images/BigBuckBunny.jpg"}}}'
+#local mp4 file (works)
+#$data = '{"type":"LOAD","requestId":46479002,"sessionId":" + $sessionId + ","media":{"contentId":"http://192.168.1.10/sourcempeg2_422_pro_ntsc.mp4","streamType":"buffered","contentType":"video/mp4"},"autoplay":true,"currentTime":0,"customData":{"payload":{"title:":"sourcempeg2_422_pro_ntsc","thumb":"images/BigBuckBunny.jpg"}}}'
+
+#local mp4 file, Python HTTP server (works)
+$data = '{"type":"LOAD","requestId":46479002,"sessionId":" + $sessionId + ","media":{"contentId":"http://192.168.1.10:8787/sourcempeg2_422_pro_ntsc.mp4","streamType":"buffered","contentType":"video/mp4"},"autoplay":true,"currentTime":0,"customData":{"payload":{"title:":"sourcempeg2_422_pro_ntsc","thumb":"images/BigBuckBunny.jpg"}}}'
+
+# local smoothstreaming file
+#$data = '{"type":"LOAD","requestId":46479002,"sessionId":" + $sessionId + ","media":{"contentId":"http://192.168.1.4/SmoothStreaming/test1/10s_MPEG2-PS_1920x1080.ism","streamType":"buffered","contentType":"application/vnd.ms-sstr+xml"},"autoplay":true,"currentTime":0,"customData":{"payload":{"title:":"sourcempeg2_422_pro_ntsc","thumb":"images/BigBuckBunny.jpg"}}}'
+
+#local hls mp4 (failed)
+#$data = '{"type":"LOAD","requestId":46479002,"sessionId":" + $sessionId + ","media":{"contentId":"http://192.168.1.10:8787/Dash.js/TEST35_CMAF_VTT_VANTAGE/ezr.m3u8","streamType":"buffered","contentType":"application/x-mpegurl"},"autoplay":true,"currentTime":0,"customData":{"payload":{"title:":"sourcempeg2_422_pro_ntsc","thumb":"images/BigBuckBunny.jpg"}}}'
+
+#local hls mpeg2 ts (works)
+#$data = '{"type":"LOAD","requestId":46479002,"sessionId":" + $sessionId + ","media":{"contentId":"http://192.168.1.10:8787/Dash.js/test41_hls_ts/sourcempeg2_422_pro_ntsc.m3u8","streamType":"buffered","contentType":"application/x-mpegurl"},"autoplay":true,"currentTime":0,"customData":{"payload":{"title:":"sourcempeg2_422_pro_ntsc","thumb":"images/BigBuckBunny.jpg"}}}'
+
+#local DASH MP4 on demand (failed)
+#$data = '{"type":"LOAD","requestId":46479002,"sessionId":" + $sessionId + ","media":{"contentId":"http://192.168.1.10:8787/Dash.js/test32_dash_OnDemand/sourcempeg2_422_pro_ntsc.mpd","streamType":"buffered","contentType":"application/dash+xml"},"autoplay":true,"currentTime":0,"customData":{"payload":{"title:":"sourcempeg2_422_pro_ntsc","thumb":"images/BigBuckBunny.jpg"}}}'
+
+#local CMAF -- DASH manifest (WORKS)
+#$data = '{"type":"LOAD","requestId":46479002,"sessionId":" + $sessionId + ","media":{"contentId":"http://192.168.1.10:8787/Dash.js/TEST35_CMAF_VTT_VANTAGE/ezr.mpd","streamType":"buffered","contentType":"application/dash+xml"},"autoplay":true,"currentTime":0,"customData":{"payload":{"title:":"sourcempeg2_422_pro_ntsc","thumb":"images/BigBuckBunny.jpg"}}}'
+
+#local HSS (failed) 
+#$data = '{"type":"LOAD","requestId":46479002,"sessionId":" + $sessionId + ","media":{"contentId":"http://192.168.1.10:8787/Dash.js/TEST42_HSS/sourcempeg2_422_pro_ntsc.ismc","streamType":"buffered","contentType":"application/vnd.ms-sstr+xml"},"autoplay":true,"currentTime":0,"customData":{"payload":{"title:":"sourcempeg2_422_pro_ntsc","thumb":"images/BigBuckBunny.jpg"}}}'
+#>
+
+$data = '{"type":"LOAD","requestId":46479002,"sessionId":"' + $sessionId + '","media":{"contentId":"http://' + $httpServerAddr + ':' + $httpServerPort + '/' + $shortName + '","streamType":"buffered","contentType":"' + $codec + '"},"autoplay":true,"currentTime":0,"customData":{"payload":{"title:":"test_file","thumb":"images/BigBuckBunny.jpg"}}}'
+
 $chrome_namespace = "urn:x-cast:com.google.cast.media"
 $msg = CreateRequest $data $chrome_namespace ([ref]$len) $transportId
 
@@ -339,7 +418,9 @@ Write-Debug "len = $len"
 $SslStream.Write($msg, 0, $len)
 $SslStream.Flush()
 
-while ($true)
+$exitflag = $false;
+
+while ($exitflag -ne $true)
 {
     if($SslStream.CanRead -eq $true)
     {   
@@ -348,7 +429,20 @@ while ($true)
         {
             $response = ''
             $ret = ReadMessage $buffer $num ([ref]$response)
-		    Write-Debug "response: $response"
+		    #Write-Debug "response: $response"
+
+            $obj = ConvertFrom-Json -InputObject $($response)
+		    if ($obj.status -ne $null)
+		    {
+                if($obj.status[0].idleReason -ne $null)
+                {
+                    if($obj.status[0].idleReason -eq 'FINISHED')
+                    {
+                        Write-Debug "Finished!"                    
+                    }
+                    $exitflag = $true
+                }
+            }
 
 	        # PING AGAIN
 	        $data = '{"type":"PING"}'
@@ -356,7 +450,7 @@ while ($true)
 	        $chrome_namespace = "urn:x-cast:com.google.cast.tp.heartbeat"
             $msg = CreateRequest $data $chrome_namespace ([ref]$len) ''
 
-            Write-Debug "len = $len"
+            #Write-Debug "len = $len"
             $SslStream.Write($msg, 0, $len)
             $SslStream.Flush()
         }
