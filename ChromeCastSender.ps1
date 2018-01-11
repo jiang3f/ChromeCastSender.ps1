@@ -26,8 +26,9 @@
 
 param (
     #[Parameter(Mandatory=$false)][hashtable]$soa_hash = @{"soa_time_numerator" = 1; "soa_time_denominator" = 1; "soa_duration_denominator" = 1; "soa_duration_numerator" = 1; "outMedia" = "d:\vantage_store\9f6a097b-a131-4a87-8cb7-42c71f0d30ee\";},
-    #[URI]$DASH = 'file://D:\vantage_store\6dc8e7bd-261c-40f6-ac64-46e269daf7aa\sourcempeg2_422_pro_ntsc\sourcempeg2_422_pro_ntsc.mpd',
-    [URI]$DASH,
+    [URI]$DASH = 'file://D:\vantage_store\6dc8e7bd-261c-40f6-ac64-46e269daf7aa\sourcempeg2_422_pro_ntsc\sourcempeg2_422_pro_ntsc.mpd',
+    #[URI]$DASH,
+    [string]$ChromecastIpAddr,
     [string]$wwwRoot ='c:\test',
     [string]$httpServerAddr = '192.168.1.10',
     [string]$httpServerPort = '8787'
@@ -225,11 +226,11 @@ else
 }
 
 # chromecast's IP address
-#$ComputerName = "10.0.19.118"
-$ComputerName = "192.168.1.12"
+#$ChromecastIpAddr = "10.0.19.118"
+#$ChromecastIpAddr = "192.168.1.12"
 
 $TcpClient = New-Object Net.Sockets.TcpClient
-$TcpClient.Connect($ComputerName, 8009)
+$TcpClient.Connect($ChromecastIpAddr, 8009)
 $TcpStream = $TcpClient.GetStream()
 
 # allow this client to communicate with unauthenticated servers.
@@ -240,7 +241,7 @@ $SslStream = New-Object -TypeName System.Net.Security.SslStream -ArgumentList @(
 $SslStream.ReadTimeout = 15000
 $SslStream.WriteTimeout = 15000
 
-$SslStream.AuthenticateAsClient($ComputerName, $null, [System.Security.Authentication.SslProtocols]::Tls11 -bor [System.Security.Authentication.SslProtocols]::Tls12 -bor [System.Security.Authentication.SslProtocols]::Default, $false)
+$SslStream.AuthenticateAsClient($ChromecastIpAddr, $null, [System.Security.Authentication.SslProtocols]::Tls11 -bor [System.Security.Authentication.SslProtocols]::Tls12 -bor [System.Security.Authentication.SslProtocols]::Default, $false)
 $Certificate = $SslStream.RemoteCertificate
 
 $len = 0
